@@ -9,7 +9,7 @@ from appJar import gui
 nlp = StanfordCoreNLP('http://corenlp.run', port=80)
 props = {'annotators': 'parse', 'pipelineLanguage': 'en', 'outputFormat': 'json'}
 apiEndpointUrl = "https://concept.research.microsoft.com/api/Concept/ScoreByProb"
-topK = 10
+topK = 20
 
 parser = CoreNLPParser(url='http://corenlp.run')
 
@@ -22,36 +22,7 @@ def submitSentence(value):
     pos_tagged = nlp.pos_tag(sentence)
     app.updateListBox("list", pos_tagged)
 
-    #cp = nlp.parse(sentence)
-    annotated = nlp.annotate(sentence, properties=props)
-    #data = json.loads(annotated)
-
-    #print(repr(cp))
-
-    #print(findNP(cp))
-
-    #print(json.dumps(data, indent=4))
     app.label("CP", next(parser.raw_parse("what is orange pie?")).pretty_print())
-
-
-def findNP(originalString):
-    out = []
-    for idx in [m.start() for m in re.finditer('\(NP', originalString)]:
-        str = ""
-        count = 0
-        for ch in originalString[ idx+4:]:
-            if ch == '(':
-                count += 1
-            if ch == ')':
-                count -= 1
-            if count < 0:
-                break
-            str += ch
-        #splitted = str.split('(')
-
-
-        out.append(str)
-    return out
 
 
 def conceptsFromInstance(instance):
