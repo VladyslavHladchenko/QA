@@ -1,3 +1,4 @@
+import operator
 import nltk.parse.corenlp as CoreNLP
 import json
 from urllib.request import urlopen
@@ -5,7 +6,7 @@ from urllib.parse import urlencode
 from nltk.draw.util import CanvasFrame, BoxWidget, TextWidget
 from nltk.draw.tree import TreeWidget, TreeSegmentWidget
 from tkinter.font import Font
-from tkinter import Entry, Button, Text, Tk, LEFT, RIGHT, INSERT, CURRENT
+from tkinter import Entry, Button, Text, Tk, LEFT, RIGHT, INSERT, CURRENT, END, Label, ACTIVE, BOTTOM, StringVar
 from itertools import cycle
 
 interest = ("NP","NN","NNS","NNP","NNPS")
@@ -21,10 +22,9 @@ def get_subsentence(element,s):
         elif type(st) is TextWidget:
             s.append(st._text)
 
+apiEndpointUrl = "https://concept.research.microsoft.com/api/Concept/ScoreByProb"
+topK = 50
 def _conceptsFromInstance(instance):
-    apiEndpointUrl = "https://concept.research.microsoft.com/api/Concept/ScoreByProb"
-    topK = 50
-
     params = {
         "instance": instance,
         'topK': topK
@@ -37,16 +37,18 @@ def _getConcept(sent):
     print("Concept request ",end="")
     print("<" + sent + ">")
     concepts = _conceptsFromInstance(sent)
+
+    print( sorted(concepts.items(), key=operator.itemgetter(1),reverse=True))
     max = 0
-    text = ""
+    text = ()
 
     for key in concepts:
         if key.__len__() > max:
             max = key.__len__()
-            text = key + " \nP(↑ concept ↑|Instance) = {:.3f}".format(concepts[key])
+            text = ("{:.3f}".format(concepts[key]), key)
 
-    if text.__eq__(""):
-        text="No concepts"
+    if not concepts:
+        text=(0,"No concepts")
     return text
 
 def _getConcepts(sent):
@@ -66,13 +68,15 @@ def load_nouns(segment, possible):
 def ph(*s):
     print("hello")
 
+
+
+
 global ts
 if __name__ == '__main__':
     top = Tk(className="Tree")
-    global ts
     parser = CoreNLP.CoreNLPParser()
-    cf = CanvasFrame(width=900, height=300,parent=top)
 
+    cf = CanvasFrame(width=900, height=300,parent=top)
     ts = TreeWidget(cf.canvas(), next(parser.raw_parse("What is Faculty of Electrical Engineering?")), draggable=1,
                     node_font=('helvetica', -17, 'bold'),
                     leaf_font=('helvetica', -14, 'italic'),
@@ -80,22 +84,19 @@ if __name__ == '__main__':
                     leaf_color='green4', node_color='blue2')
 
     E1 = Entry(top, bd=1,width=50,bg="white")
-    E1.insert(0,"What is Faculty of Electrical Engineering?")
-    E1.pack(ipady=20)
-    E1.focus()
+    E1.insert(0, "What is Faculty of Electrical Engineering?")
 
     instance = TextWidget(cf.canvas(), "", font=Font(family="Times New Roman", size=15))
     instancebox = BoxWidget(cf.canvas(), instance, fill='white', draggable=1)
-
-    concept = TextWidget(cf.canvas(), "", font=Font(family="Times New Roman", size=15))
-    conceptbox = BoxWidget(cf.canvas(), concept, fill='white', draggable=1)
-
     cf.add_widget(instancebox, 600, 50)
-    cf.add_widget(conceptbox, 500, 90)
     cf.add_widget(ts)
 
-    prevcolor = 'blue2'
+    #Label for possible Google Knowledge Graph information
+    Gtext = StringVar()
+    Gtext.set("")
+    Label(top, textvariable=Gtext,state=ACTIVE).pack(side=BOTTOM)
 
+    prevcolor = 'blue2'
     def treeClicked(smth):
         global prev,prevcolor
         prev['color'] = prevcolor
@@ -106,13 +107,12 @@ if __name__ == '__main__':
         subsentence = []
         get_subsentence(smth, subsentence)
 
-        instance.set_text("Instance: " + " ".join(subsentence))
         c = _getConcept(" ".join(subsentence))
 
-        concept.set_text(c)
+        instance.set_text(" ".join(subsentence) + " : " + c[1] + ("" if c[0]== 0 else ("\n" + c[0])))
 
-        if c.__eq__("No concepts"):
-            print(" -> " + c)
+        if c[1].__eq__("No concepts"):
+            print(" -> " + c[1])
             return False
         print(" -> OK")
         return True
@@ -122,7 +122,7 @@ if __name__ == '__main__':
     def submitButton(*s):
         global ts,prev
         instance.set_text("")
-        concept.set_text("")
+
         cf.remove_widget(ts)
         ts.destroy()
 
@@ -152,8 +152,20 @@ if __name__ == '__main__':
                 break
 
     B1 = Button(top, text='Submit', command=submitButton)
+
+    top.bind('<Return>', lambda e: submitButton())
+    top.bind('<Control-c>', lambda e: (
+        instance.set_text(""),
+        E1.delete(0, 'end'),
+        ts.hide(),
+        print()
+        ))
+
+
+    E1.focus()
+    E1.pack(ipady=20)
     B1.pack()
-    cf.pack()
+    cf.pack(side=LEFT)
     B1.invoke()
 
     top.mainloop()
