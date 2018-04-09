@@ -6,7 +6,7 @@ from urllib.parse import urlencode
 from nltk.draw.util import CanvasFrame, BoxWidget, TextWidget
 from nltk.draw.tree import TreeWidget, TreeSegmentWidget
 from tkinter.font import Font
-from tkinter import Entry, Button, Text, Tk, LEFT, RIGHT, INSERT, CURRENT, END, Label, ACTIVE, BOTTOM, StringVar
+from tkinter import Entry, Button, Text, Tk, LEFT, RIGHT, INSERT, CURRENT, END, Label, ACTIVE, BOTTOM, StringVar, NE,NW
 from itertools import cycle
 
 interest = ("NP","NN","NNS","NNP","NNPS")
@@ -22,20 +22,46 @@ def get_subsentence(element,s):
         elif type(st) is TextWidget:
             s.append(st._text)
 
-apiEndpointUrl = "https://concept.research.microsoft.com/api/Concept/ScoreByProb"
-topK = 50
+def setScoreType(scoreType):
+    global ScoreType
+    ScoreType = scoreType
+
+ScoreByCross = 'ScoreByCross'
+ScoreByProb = "ScoreByProb"
+ScoreTypes = {ScoreByCross :"Score by BLC", ScoreByProb: "Score by P(c|e)" }
+ScoreType = ScoreByProb
+
+apiEndpointUrl = "https://concept.research.microsoft.com/api/Concept/"
+topK = 20
+GoogleKGURL= "https://kgsearch.googleapis.com/v1/entities:search"
+API_KEY = "AIzaSyBLhn9xTY9NynDihbQeG9qAe0BQAY2UwwY"
+
+def Google(query):
+    params = {
+        "query": query,
+        'key' : API_KEY,
+        'limit' : 10,
+        'indent' : True
+    }
+    url = GoogleKGURL + "?" + urlencode(params)
+    response = json.loads(urlopen(url).read().decode('utf8'))
+    print("Google request <" + query + ">")
+    print(json.dumps(response['itemListElement'],indent=4))
+
+
 def _conceptsFromInstance(instance):
     params = {
         "instance": instance,
         'topK': topK
     }
-    url = apiEndpointUrl + '?' + urlencode(params)
+    url = apiEndpointUrl + ScoreType + '?' + urlencode(params)
     response = json.loads(urlopen(url).read().decode('utf8'))
     return response
 
 def _getConcept(sent):
     print("Concept request ",end="")
     print("<" + sent + ">")
+    print(ScoreTypes[ScoreType] )
     concepts = _conceptsFromInstance(sent)
 
     print( sorted(concepts.items(), key=operator.itemgetter(1),reverse=True))
@@ -43,8 +69,8 @@ def _getConcept(sent):
     text = ()
 
     for key in concepts:
-        if key.__len__() > max:
-            max = key.__len__()
+        if concepts[key] > max:
+            max = concepts[key]
             text = ("{:.3f}".format(concepts[key]), key)
 
     if not concepts:
@@ -73,10 +99,13 @@ def ph(*s):
 
 global ts
 if __name__ == '__main__':
-    top = Tk(className="Tree")
+    top = Tk()
+    top.title("TREE!")
+
+    top.geometry("800x500")
     parser = CoreNLP.CoreNLPParser()
 
-    cf = CanvasFrame(width=900, height=300,parent=top)
+    cf = CanvasFrame(width=400, height=400,parent=top)
     ts = TreeWidget(cf.canvas(), next(parser.raw_parse("What is Faculty of Electrical Engineering?")), draggable=1,
                     node_font=('helvetica', -17, 'bold'),
                     leaf_font=('helvetica', -14, 'italic'),
@@ -86,15 +115,11 @@ if __name__ == '__main__':
     E1 = Entry(top, bd=1,width=50,bg="white")
     E1.insert(0, "What is Faculty of Electrical Engineering?")
 
-    instance = TextWidget(cf.canvas(), "", font=Font(family="Times New Roman", size=15))
-    instancebox = BoxWidget(cf.canvas(), instance, fill='white', draggable=1)
-    cf.add_widget(instancebox, 600, 50)
-    cf.add_widget(ts)
+    cf.add_widget(ts,0,60)
 
-    #Label for possible Google Knowledge Graph information
-    Gtext = StringVar()
-    Gtext.set("")
-    Label(top, textvariable=Gtext,state=ACTIVE).pack(side=BOTTOM)
+    #Label for possible Concept Graph information
+    ConceptText = StringVar()
+    Label(top, textvariable=ConceptText, justify=LEFT, bg="white").pack(side=RIGHT)
 
     prevcolor = 'blue2'
     def treeClicked(smth):
@@ -108,21 +133,25 @@ if __name__ == '__main__':
         get_subsentence(smth, subsentence)
 
         c = _getConcept(" ".join(subsentence))
-
-        instance.set_text(" ".join(subsentence) + " : " + c[1] + ("" if c[0]== 0 else ("\n" + c[0])))
-
+        # Google(c[1])
+        ConceptText.set(" ".join(subsentence) + " : " + c[1] + ("" if c[0] == 0 else ("\n" + ScoreTypes[ScoreType] + ' ' + c[0])))
         if c[1].__eq__("No concepts"):
             print(" -> " + c[1])
             return False
+
+
         print(" -> OK")
         return True
 
     possible = []
 
     def submitButton(*s):
+        if E1.get() is "": return
+        if ts.hidden():
+            ts.show()
+
         global ts,prev
-        if ts.hidden(): ts.show()
-        instance.set_text("")
+
         cf.remove_widget(ts)
         ts.destroy()
 
@@ -136,7 +165,7 @@ if __name__ == '__main__':
         prev = ts._nodes[0]
         ts.bind_click_trees(treeClicked)
 
-        cf.add_widget(ts)
+        cf.add_widget(ts,0,60)
         possible.clear()
         load_nouns(ts._treeseg, possible)
         print("Possible variants: ")
@@ -154,13 +183,25 @@ if __name__ == '__main__':
     B1 = Button(top, text='Submit', command=submitButton)
 
     top.bind('<Return>', lambda e: submitButton())
-    top.bind('<Control-c>', lambda e: (
-        instance.set_text(""),
+    top.bind('<Escape>', lambda e: top.destroy())
+    top.bind('<Control-z>', lambda e: (
+        ConceptText.set(""),
         E1.delete(0, 'end'),
         ts.hide(),
         print()
         ))
 
+
+
+    top.bind('<Control-KP_0>', lambda e :(
+        setScoreType(ScoreByProb),
+        submitButton()
+        ))
+
+    top.bind('<Control-KP_1>', lambda e: (
+        setScoreType(ScoreByCross),
+        submitButton()
+    ))
 
     E1.focus()
     E1.pack(ipady=20)
