@@ -29,7 +29,7 @@ def setScoreType(scoreType):
 ScoreByCross = 'ScoreByCross'
 ScoreByProb = "ScoreByProb"
 ScoreTypes = {ScoreByCross :"Score by BLC", ScoreByProb: "Score by P(c|e)" }
-ScoreType = ScoreByProb
+ScoreType = ScoreByCross
 
 apiEndpointUrl = "https://concept.research.microsoft.com/api/Concept/"
 topK = 20
@@ -133,6 +133,7 @@ if __name__ == '__main__':
         get_subsentence(smth, subsentence)
 
         c = _getConcept(" ".join(subsentence))
+        Google(" ".join(subsentence))
         # Google(c[1])
         ConceptText.set(" ".join(subsentence) + " : " + c[1] + ("" if c[0] == 0 else ("\n" + ScoreTypes[ScoreType] + ' ' + c[0])))
         if c[1].__eq__("No concepts"):
@@ -166,7 +167,7 @@ if __name__ == '__main__':
         prev = ts._nodes[0]
         ts.bind_click_trees(treeClicked)
 
-        cf.add_widget(ts,0,60)
+        cf.add_widget(ts)
         possible.clear()
         load_nouns(ts._treeseg, possible)
         print("Possible variants: ")
@@ -202,7 +203,7 @@ if __name__ == '__main__':
     top.bind('<Control-KP_1>', lambda e: (
         setScoreType(ScoreByCross),
         submitButton()
-    ))
+        ))
 
     E1.focus()
     E1.pack(ipady=20)
