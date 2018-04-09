@@ -146,11 +146,12 @@ if __name__ == '__main__':
     possible = []
 
     def submitButton(*s):
-        if E1.get() is "": return
+        global ts,prev
+        if E1.get() is "":
+            return
         if ts.hidden():
             ts.show()
 
-        global ts,prev
 
         cf.remove_widget(ts)
         ts.destroy()
