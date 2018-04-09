@@ -95,8 +95,6 @@ def ph(*s):
     print("hello")
 
 
-
-
 global ts
 if __name__ == '__main__':
     top = Tk()
@@ -119,7 +117,8 @@ if __name__ == '__main__':
 
     #Label for possible Concept Graph information
     ConceptText = StringVar()
-    Label(top, textvariable=ConceptText, justify=LEFT, bg="white").pack(side=RIGHT)
+    Label(top, textvariable=ConceptText, font="Courier 16 bold",justify=LEFT, bg="white").pack(side=BOTTOM)
+
 
     prevcolor = 'blue2'
     def treeClicked(smth):
