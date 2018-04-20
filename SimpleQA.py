@@ -9,6 +9,10 @@ from tkinter.font import Font
 from tkinter import Entry, Button, Text, Tk, LEFT, RIGHT, INSERT, CURRENT, END, Label, ACTIVE, BOTTOM, StringVar, NE,NW
 from itertools import cycle
 
+from SPARQLWrapper import SPARQLWrapper, JSON
+from GoogleKnowlegeGraph import knowlege_graph_request
+from MicrosoftConceptGraph import *
+
 interest = ("NP","NN","NNS","NNP","NNPS")
 
 def print_class_name(smth):
@@ -22,67 +26,7 @@ def get_subsentence(element,s):
         elif type(st) is TextWidget:
             s.append(st._text)
 
-def setScoreType(scoreType):
-    global ScoreType
-    ScoreType = scoreType
-
-ScoreByCross = 'ScoreByCross'
-ScoreByProb = "ScoreByProb"
-ScoreTypes = {ScoreByCross :"Score by BLC", ScoreByProb: "Score by P(c|e)" }
-ScoreType = ScoreByCross
-
-apiEndpointUrl = "https://concept.research.microsoft.com/api/Concept/"
-topK = 20
-GoogleKGURL= "https://kgsearch.googleapis.com/v1/entities:search"
-API_KEY = "AIzaSyBLhn9xTY9NynDihbQeG9qAe0BQAY2UwwY"
-
-def Google(query):
-    params = {
-        "query": query,
-        'key' : API_KEY,
-        'limit' : 10,
-        'indent' : True
-    }
-    url = GoogleKGURL + "?" + urlencode(params)
-    response = json.loads(urlopen(url).read().decode('utf8'))
-    print("Google request <" + query + ">")
-    print(json.dumps(response['itemListElement'],indent=4))
-
-
-def _conceptsFromInstance(instance):
-    params = {
-        "instance": instance,
-        'topK': topK
-    }
-    url = apiEndpointUrl + ScoreType + '?' + urlencode(params)
-    response = json.loads(urlopen(url).read().decode('utf8'))
-    return response
-
-def _getConcept(sent):
-    print("Concept request ",end="")
-    print("<" + sent + ">")
-    print(ScoreTypes[ScoreType] )
-    concepts = _conceptsFromInstance(sent)
-
-    print( sorted(concepts.items(), key=operator.itemgetter(1),reverse=True))
-    max = 0
-    text = ()
-
-    for key in concepts:
-        if concepts[key] > max:
-            max = concepts[key]
-            text = ("{:.3f}".format(concepts[key]), key)
-
-    if not concepts:
-        text=(0,"No concepts")
-    return text
-
-def _getConcepts(sent):
-    concepts = _conceptsFromInstance(sent)
-    text = ""
-    for key in concepts:
-        text += " " + key + " {:.3f}\t".format(concepts[key]) + '\n'
-    return text
+sparql = SPARQLWrapper("http://dbpedia.org/sparql")
 
 def load_nouns(segment, possible):
     for st in segment.subtrees():
@@ -91,12 +35,9 @@ def load_nouns(segment, possible):
                 possible.append(st)
             load_nouns(st, possible)
 
-def ph(*s):
-    print("hello")
-
-
 global ts
 if __name__ == '__main__':
+
     top = Tk()
     top.title("TREE!")
 
@@ -117,7 +58,8 @@ if __name__ == '__main__':
 
     #Label for possible Concept Graph information
     ConceptText = StringVar()
-    Label(top, textvariable=ConceptText, font="Courier 16 bold",justify=LEFT, bg="white").pack(side=BOTTOM)
+    info = Label(top, textvariable=ConceptText, font="Courier 16 bold",justify=LEFT, bg="white")
+    info.pack(side=BOTTOM)
 
 
     prevcolor = 'blue2'
@@ -131,14 +73,14 @@ if __name__ == '__main__':
         subsentence = []
         get_subsentence(smth, subsentence)
 
-        c = _getConcept(" ".join(subsentence))
-        Google(" ".join(subsentence))
+        c = getConcept(" ".join(subsentence))
         # Google(c[1])
-        ConceptText.set(" ".join(subsentence) + " : " + c[1] + ("" if c[0] == 0 else ("\n" + ScoreTypes[ScoreType] + ' ' + c[0])))
+        ConceptText.set(" ".join(subsentence) + " : " + c[1] + ("" if c[0] == 0 else ("\n" + getScoreType() + ' ' + c[0])))
         if c[1].__eq__("No concepts"):
             print(" -> " + c[1])
             return False
 
+        knowlege_graph_request(" ".join(subsentence),c[0])
 
         print(" -> OK")
         return True
